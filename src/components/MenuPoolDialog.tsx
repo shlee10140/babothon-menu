@@ -141,7 +141,7 @@ export const MenuPoolDialog: React.FC<MenuPoolDialogProps> = ({
             type="search"
             maxLength={20}
             className="clean-input menu-search-input"
-            placeholder="메뉴 검색 (이름 · 초성 예: ㄱㅊ)"
+            placeholder="메뉴 검색"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
