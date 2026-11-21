@@ -432,6 +432,100 @@
   color: var(--ink-primary);
 }
 
+/* Act 1: Real-Time Telemetry Extraction Strip */
+.telemetry-card {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.9rem 1.05rem;
+  border-radius: 18px;
+  background: var(--bg-surface);
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation:
+      fadeOnly 0.22s ease-out both,
+      headlineSwap 0.34s ease-out both;
+    animation-timing-function: ease-out, var(--spring-easing);
+  }
+}
+
+.telemetry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.telemetry-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.telemetry-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: liveDotPulse 1.1s ease-in-out infinite;
+  }
+}
+
+@keyframes liveDotPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.telemetry-precision {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+@container (max-width: 310px) {
+  .telemetry-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.telemetry-cell {
+  display: grid;
+  gap: 0.14rem;
+  padding: 0.52rem 0.58rem;
+  border-radius: 12px;
+  background: #ffffff;
+  min-width: 0;
+}
+
+.telemetry-k {
+  font-size: 0.67rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.telemetry-v {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ink-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Act 2: Live Kinetic Formula Assembly Ribbon */
 .eq-ribbon {
   display: grid;
@@ -502,12 +596,33 @@
   box-shadow: 0 4px 14px rgba(49, 130, 246, 0.26);
 }
 
-/* Act 3: 114-Menu Pool Live Slot Lock-On Card */
-.reel-card {
+.eq-checks {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  padding-top: 0.15rem;
+}
+
+.eq-check-item {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.9rem;
+  gap: 0.26rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  opacity: 0.45;
+  transition: opacity 0.18s ease, color 0.18s ease;
+}
+
+.eq-check-item.is-done {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* Act 3: Live Candidate Pool Elimination Engine (400 -> 1) */
+.reel-card {
+  display: grid;
+  gap: 0.7rem;
   padding: 1rem 1.15rem;
   border-radius: 20px;
   background: #141923;
@@ -527,29 +642,117 @@
   box-shadow: 0 10px 28px rgba(49, 130, 246, 0.32);
 }
 
+.reel-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .reel-left {
   display: grid;
-  gap: 0.18rem;
+  gap: 0.16rem;
 }
 
 .reel-badge {
   font-size: 0.78rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.94);
 }
 
 .reel-rule {
-  font-size: 0.74rem;
+  font-size: 0.73rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.65);
 }
 
 .reel-card--locked .reel-rule {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.elim-counter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.24rem;
+  flex-shrink: 0;
+}
+
+.elim-count-num {
+  font-size: 1.38rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.elim-count-unit {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.reel-card--locked .elim-count-unit {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.elim-rail {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.elim-rail-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transform-origin: left center;
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition: transform 0.13s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease;
+  }
+}
+
+.elim-rail-fill.is-locked {
+  background: #ffffff;
+}
+
+.reel-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 30px;
+}
+
+.reel-eliminated {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.reel-elim-pill {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.42);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.38);
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: fadeOnly 0.16s ease-out both;
+  }
+}
+
+.reel-card--locked .reel-elim-pill {
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .reel-slot-window {
   position: relative;
+  flex-shrink: 0;
   min-width: 112px;
   display: flex;
   justify-content: flex-end;
@@ -1326,6 +1529,40 @@
   @media (prefers-reduced-motion: no-preference) {
     transform: translateY(0);
   }
+}
+
+.reroll-nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  padding: 0.62rem 0.9rem;
+  border-radius: 13px;
+  background: var(--bg-surface);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink-secondary);
+  line-height: 1.45;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: fadeOnly 0.24s ease-out both;
+  }
+}
+
+.reroll-nudge-link {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0.15rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.reroll-nudge-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .result-actions {

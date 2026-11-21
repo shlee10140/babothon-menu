@@ -236,19 +236,36 @@ export function playPhaseSound(
 }
 
 /**
- * Soft tactile tick for the Act 3 candidate-pool roulette deceleration.
+ * Crisp micro verification tick for Act 2 sequential checkmarks.
+ */
+export function playVerifyTickSound(stepIndex: number, enabled: boolean): void {
+  const ctx = getReadyCtx(enabled);
+  if (!ctx) return;
+
+  const freqs = [660, 784, 988];
+  playTone(ctx, {
+    freq: freqs[Math.min(stepIndex, freqs.length - 1)],
+    type: 'sine',
+    duration: 0.055,
+    gain: 0.022,
+  });
+}
+
+/**
+ * Soft tactile tick for the Act 3 candidate-pool elimination deceleration.
  */
 export function playReelTickSound(stepIndex: number, isLock: boolean, enabled: boolean): void {
   const ctx = getReadyCtx(enabled);
   if (!ctx) return;
 
   if (isLock) {
-    // Crisp lock-on double click right before final reveal
-    playTone(ctx, { freq: 880, type: 'sine', duration: 0.09, gain: 0.04 });
+    // Crisp lock-on double chime right before final reveal
+    playTone(ctx, { freq: 783.99, type: 'sine', duration: 0.09, gain: 0.042 });
+    playTone(ctx, { freq: 1046.5, type: 'sine', startOffset: 0.055, duration: 0.14, gain: 0.044 });
     return;
   }
 
-  const freq = 380 + Math.min(stepIndex, 8) * 38;
+  const freq = 380 + Math.min(stepIndex, 8) * 42;
   playTone(ctx, {
     freq,
     type: 'triangle',

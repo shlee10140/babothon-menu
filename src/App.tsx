@@ -108,6 +108,7 @@ export const App: React.FC = () => {
   const [liveData, setLiveData] = useState<LiveWorldData>(initial.liveData);
   const latestLiveRef = useRef<LiveWorldData>(initial.liveData);
   const [runKey, setRunKey] = useState(initial.runKey);
+  const [rerollCount, setRerollCount] = useState(0);
   const [phase, setPhase] = useState<MotionPhase>(initial.view === 'result' ? 1 : 4);
 
   const [soundOn, setSoundOn] = useState<boolean>(() => loadSoundPreference());
@@ -232,17 +233,17 @@ export const App: React.FC = () => {
     const t2 = window.setTimeout(() => {
       setPhase(2);
       playPhaseSound(2, theoryForRun, soundOnRef.current);
-    }, 1020);
+    }, 1120);
 
     const t3 = window.setTimeout(() => {
       setPhase(3);
       playPhaseSound(3, theoryForRun, soundOnRef.current);
-    }, 2120);
+    }, 2320);
 
     const t4 = window.setTimeout(() => {
       setPhase(4);
       playPhaseSound(4, theoryForRun, soundOnRef.current);
-    }, 3440);
+    }, 3860);
 
     return () => {
       window.clearTimeout(t2);
@@ -252,7 +253,7 @@ export const App: React.FC = () => {
   }, [runKey, view]);
 
   const runFreshCalculation = useCallback(
-    (text: string, currentMenus: MenuItem[]) => {
+    (text: string, currentMenus: MenuItem[], isReroll = false) => {
       const cleaned = text.trim();
       if (!cleaned) return;
       if (soundOnRef.current) unlockAudio();
@@ -284,6 +285,7 @@ export const App: React.FC = () => {
       setActiveMenuId(menuId);
       setLiveData(freshLive);
       setVariantSeed((s) => s + 1);
+      setRerollCount((c) => (isReroll ? c + 1 : 0));
       setRunKey((k) => k + 1);
       setView('result');
     },
@@ -292,11 +294,11 @@ export const App: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    runFreshCalculation(draftText, menus);
+    runFreshCalculation(draftText, menus, false);
   };
 
   const handleReroll = () => {
-    runFreshCalculation(submittedText, menus);
+    runFreshCalculation(submittedText, menus, true);
   };
 
   const handleReplay = () => {
@@ -309,6 +311,7 @@ export const App: React.FC = () => {
   };
 
   const handleBackHome = () => {
+    setRerollCount(0);
     setView('home');
   };
 
@@ -377,6 +380,56 @@ export const App: React.FC = () => {
   };
 
   const activeMenuCount = menus.filter((m) => m.enabled).length;
+
+  const rerollNudge = useMemo(() => {
+    if (rerollCount <= 0) return null;
+    if (rerollCount === 1) {
+      return {
+        text: '방금 메뉴는 살짝 애매했나요? 다른 방식으로 다시 뽑아봤어요.',
+        showAddHint: false,
+      };
+    }
+    if (rerollCount === 2) {
+      return {
+        text: '이번엔 또 다른 계산법이에요. 슬슬 하나쯤 꽂힐 때가 됐는데…',
+        showAddHint: false,
+      };
+    }
+    if (rerollCount === 3) {
+      return {
+        text: '벌써 4번째 계산이에요. 입맛이 꽤 까다로우시네요.',
+        showAddHint: false,
+      };
+    }
+    if (rerollCount === 4) {
+      return {
+        text: '솔직히 이미 마음속에 먹고 싶은 거 있으시죠?',
+        showAddHint: true,
+      };
+    }
+    if (rerollCount === 5) {
+      return {
+        text: '그거 그냥 드셔도 되는데… 일단 한 번 더 찾아봤어요.',
+        showAddHint: true,
+      };
+    }
+    if (rerollCount === 6) {
+      return {
+        text: '이 정도면 메뉴 고르기가 아니라 룰렛 즐기는 중이신 듯해요.',
+        showAddHint: true,
+      };
+    }
+    if (rerollCount === 7) {
+      return {
+        text: `이쯤 되면 ${activeMenuCount}개 다 돌려보실 기세네요.`,
+        showAddHint: true,
+      };
+    }
+    return {
+      text: `아직도 고민 중이시라면… (${rerollCount + 1}번째 추천)`,
+      showAddHint: true,
+    };
+  }, [rerollCount, activeMenuCount]);
 
   return (
     <div className="app-root">
@@ -532,12 +585,13 @@ export const App: React.FC = () => {
               onSkip={handleSkipMotion}
             />
 
-            {/* Live Kinetic Formula Assembly & Candidate Lock-On Cinema (Acts 1–3 only) */}
+            {/* Live Kinetic Formula Assembly & Candidate Elimination Cinema (Acts 1–3 only) */}
             <DeductionCinemaBar
               proof={proof}
               phase={phase}
               runKey={runKey}
               menus={menus}
+              liveData={liveData}
               soundOn={soundOn}
               onSkip={handleSkipMotion}
             />
@@ -563,6 +617,21 @@ export const App: React.FC = () => {
 
             {/* Bottom Actions appear smoothly once calculation lands */}
             <div className={`result-footer-actions ${phase === 4 ? 'is-visible' : ''}`}>
+              {rerollNudge && (
+                <div key={`nudge-${rerollCount}`} className="reroll-nudge">
+                  <span>{rerollNudge.text}</span>
+                  {rerollNudge.showAddHint && (
+                    <button
+                      type="button"
+                      className="reroll-nudge-link"
+                      onClick={() => setPoolOpen(true)}
+                    >
+                      그냥 추가하기
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="result-actions">
                 <button type="button" className="btn btn--primary" onClick={handleReroll}>
                   <RefreshCw size={15} aria-hidden="true" />
