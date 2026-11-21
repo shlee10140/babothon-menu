@@ -45,6 +45,40 @@ interface InitialBootstrap {
   runKey: number;
 }
 
+const EARLY_REROLL_NUDGES = [
+  '아까 건 패스하신 거죠? 이번 건 좀 어떠세요.',
+  '음, 취향이 꽤 확고하신 편이네요.',
+  '이 정도면 슬슬 하나쯤 걸릴 만도 한데요.',
+  '방금 건 못 본 걸로 하고 다시 뽑아봤어요.',
+  '은근히 까다로우시네요. 이건 어때요?',
+  '잠깐 고민하다 넘기신 거 다 압니다.',
+  '이번엔 진짜 괜찮은 것 같은데, 또 넘기시려나요.',
+  '이쯤 되면 그냥 이거 드셔도 될 것 같은데요.',
+];
+
+const LATE_REROLL_NUDGES = [
+  '솔직히 이미 마음속에 정해둔 메뉴 있으시죠?',
+  '그냥 그거 드시지… 왜 저한테 확인받으려고 하세요.',
+  '이쯤 되면 메뉴 고르는 게 아니라 버튼 누르는 재미로 하시는 거죠?',
+  '네, 또 뽑아드렸습니다. 이번에도 넘기실 거죠?',
+  '지금쯤이면 배고파서 뭘 먹어도 맛있을 텐데요.',
+  '슬슬 제일 처음 나왔던 게 제일 나아 보이기 시작할 타이밍이에요.',
+  '이 정도 돌렸으면 그냥 마음 가는 거 드셔도 아무도 뭐라 안 해요.',
+  '혹시 400개 구경하러 오신 건 아니죠?',
+  '알겠습니다, 마음에 드는 거 나올 때까지 뽑아드릴게요.',
+  '계속 넘기시는 걸 보니 답은 이미 정해져 있는 것 같네요.',
+  '이거 넘기시면 아까 나왔던 거보다 나을 보장은 없어요.',
+  '방금 또 손가락이 다시 찾기로 가려는 거 보였어요.',
+  '오늘 안에 식사하실 계획은 있으신 거죠?',
+  '괜히 눈치 보지 마시고 먹고 싶은 거 직접 넣어보세요.',
+];
+
+function pickFreshNudge(pool: string[], recent: string[]): string {
+  const candidates = pool.filter((line) => !recent.includes(line));
+  const source = candidates.length > 0 ? candidates : pool;
+  return source[Math.floor(Math.random() * source.length)];
+}
+
 function getInitialBootstrap(): InitialBootstrap {
   const baseMenus = DEFAULT_MENUS.map((m) => ({ ...m }));
   const nowLive = createInitialLiveData();
@@ -112,7 +146,13 @@ export const App: React.FC = () => {
   const [liveData, setLiveData] = useState<LiveWorldData>(initial.liveData);
   const latestLiveRef = useRef<LiveWorldData>(initial.liveData);
   const [runKey, setRunKey] = useState(initial.runKey);
-  const [rerollCount, setRerollCount] = useState(0);
+  const rerollCountRef = useRef(0);
+  const recentNudgesRef = useRef<string[]>([]);
+  const [rerollNudge, setRerollNudge] = useState<{
+    key: number;
+    text: string;
+    showAddHint: boolean;
+  } | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>(() =>
     pickDynamicSuggestions(initial.liveData)
   );
@@ -302,7 +342,18 @@ export const App: React.FC = () => {
       setActiveMenuId(menuId);
       setLiveData(freshLive);
       setVariantSeed((s) => s + 1);
-      setRerollCount((c) => (isReroll ? c + 1 : 0));
+      if (isReroll) {
+        const nextCount = rerollCountRef.current + 1;
+        rerollCountRef.current = nextCount;
+        const isLate = nextCount >= 3;
+        const pool = isLate ? LATE_REROLL_NUDGES : EARLY_REROLL_NUDGES;
+        const line = pickFreshNudge(pool, recentNudgesRef.current);
+        recentNudgesRef.current = [...recentNudgesRef.current.slice(-10), line];
+        setRerollNudge({ key: nextCount, text: line, showAddHint: isLate });
+      } else {
+        rerollCountRef.current = 0;
+        setRerollNudge(null);
+      }
       setStepsOpen(
         typeof window !== 'undefined' ? window.matchMedia('(min-width: 641px)').matches : true
       );
@@ -332,7 +383,8 @@ export const App: React.FC = () => {
   };
 
   const handleBackHome = () => {
-    setRerollCount(0);
+    rerollCountRef.current = 0;
+    setRerollNudge(null);
     setSuggestions((prev) => pickDynamicSuggestions(latestLiveRef.current, prev));
     setView('home');
   };
@@ -406,56 +458,6 @@ export const App: React.FC = () => {
   };
 
   const activeMenuCount = menus.filter((m) => m.enabled).length;
-
-  const rerollNudge = useMemo(() => {
-    if (rerollCount <= 0) return null;
-    if (rerollCount === 1) {
-      return {
-        text: '방금 메뉴는 살짝 애매했나요? 다른 방식으로 다시 뽑아봤어요.',
-        showAddHint: false,
-      };
-    }
-    if (rerollCount === 2) {
-      return {
-        text: '이번엔 또 다른 계산법이에요. 슬슬 하나쯤 꽂힐 때가 됐는데…',
-        showAddHint: false,
-      };
-    }
-    if (rerollCount === 3) {
-      return {
-        text: '벌써 4번째 계산이에요. 입맛이 꽤 까다로우시네요.',
-        showAddHint: false,
-      };
-    }
-    if (rerollCount === 4) {
-      return {
-        text: '솔직히 이미 마음속에 먹고 싶은 거 있으시죠?',
-        showAddHint: true,
-      };
-    }
-    if (rerollCount === 5) {
-      return {
-        text: '그거 그냥 드셔도 되는데… 일단 한 번 더 찾아봤어요.',
-        showAddHint: true,
-      };
-    }
-    if (rerollCount === 6) {
-      return {
-        text: '이 정도면 메뉴 고르기가 아니라 룰렛 즐기는 중이신 듯해요.',
-        showAddHint: true,
-      };
-    }
-    if (rerollCount === 7) {
-      return {
-        text: `이쯤 되면 ${activeMenuCount}개 다 돌려보실 기세네요.`,
-        showAddHint: true,
-      };
-    }
-    return {
-      text: `아직도 고민 중이시라면… (${rerollCount + 1}번째 추천)`,
-      showAddHint: true,
-    };
-  }, [rerollCount, activeMenuCount]);
 
   return (
     <div className="app-root">
@@ -666,7 +668,7 @@ export const App: React.FC = () => {
             {/* Bottom Actions appear smoothly once calculation lands */}
             <div className={`result-footer-actions ${phase === 4 ? 'is-visible' : ''}`}>
               {rerollNudge && (
-                <div key={`nudge-${rerollCount}`} className="reroll-nudge">
+                <div key={`nudge-${rerollNudge.key}`} className="reroll-nudge">
                   <span>{rerollNudge.text}</span>
                   {rerollNudge.showAddHint && (
                     <button
