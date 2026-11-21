@@ -10,7 +10,11 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { LiveWorldData, MenuItem, TheoryId } from './types/menu';
-import { DEFAULT_MENUS, EXAMPLE_SENTENCES, getNowClockContext } from './engine/hangulMath';
+import {
+  DEFAULT_MENUS,
+  getNowClockContext,
+  pickDynamicSuggestions,
+} from './engine/hangulMath';
 import { computeMoonPhase, createInitialLiveData, fetchLiveFeeds } from './engine/liveData';
 import { generateProof, josa, pickFreshTheoryAndMenu } from './engine/proofEngine';
 import { buildShareUrl, parseShareUrl } from './engine/shareUrl';
@@ -109,6 +113,12 @@ export const App: React.FC = () => {
   const latestLiveRef = useRef<LiveWorldData>(initial.liveData);
   const [runKey, setRunKey] = useState(initial.runKey);
   const [rerollCount, setRerollCount] = useState(0);
+  const [suggestions, setSuggestions] = useState<string[]>(() =>
+    pickDynamicSuggestions(initial.liveData)
+  );
+  const [stepsOpen, setStepsOpen] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 641px)').matches : true
+  );
   const [phase, setPhase] = useState<MotionPhase>(initial.view === 'result' ? 1 : 4);
   const phaseTimersRef = useRef<number[]>([]);
 
@@ -204,14 +214,14 @@ export const App: React.FC = () => {
   // Keep browser URL & document title cleanly synchronized with current view
   useEffect(() => {
     if (view === 'result') {
-      document.title = `${proof.menu.name} · 아무말 메뉴`;
+      document.title = `${proof.menu.name} · 난 진짜 다 좋아`;
       try {
         window.history.replaceState(null, '', shareUrl);
       } catch {
         // Ignore history restrictions in sandboxed environments
       }
     } else {
-      document.title = '아무말 메뉴';
+      document.title = '난 진짜 다 좋아';
       if (window.location.search) {
         try {
           window.history.replaceState(null, '', window.location.pathname);
@@ -240,17 +250,17 @@ export const App: React.FC = () => {
     const t2 = window.setTimeout(() => {
       setPhase(2);
       playPhaseSound(2, theoryForRun, soundOnRef.current);
-    }, 1120);
+    }, 1300);
 
     const t3 = window.setTimeout(() => {
       setPhase(3);
       playPhaseSound(3, theoryForRun, soundOnRef.current);
-    }, 2320);
+    }, 2650);
 
     const t4 = window.setTimeout(() => {
       setPhase(4);
       playPhaseSound(4, theoryForRun, soundOnRef.current);
-    }, 3860);
+    }, 5320);
 
     phaseTimersRef.current = [t2, t3, t4];
 
@@ -293,6 +303,9 @@ export const App: React.FC = () => {
       setLiveData(freshLive);
       setVariantSeed((s) => s + 1);
       setRerollCount((c) => (isReroll ? c + 1 : 0));
+      setStepsOpen(
+        typeof window !== 'undefined' ? window.matchMedia('(min-width: 641px)').matches : true
+      );
       setRunKey((k) => k + 1);
       setView('result');
     },
@@ -320,7 +333,12 @@ export const App: React.FC = () => {
 
   const handleBackHome = () => {
     setRerollCount(0);
+    setSuggestions((prev) => pickDynamicSuggestions(latestLiveRef.current, prev));
     setView('home');
+  };
+
+  const handleRefreshSuggestions = () => {
+    setSuggestions((prev) => pickDynamicSuggestions(latestLiveRef.current, prev));
   };
 
   const handleToggleSound = () => {
@@ -444,7 +462,7 @@ export const App: React.FC = () => {
       {/* Shared Minimal Navigation Bar */}
       <header className="nav-bar">
         {view === 'home' ? (
-          <span className="nav-brand">아무말 메뉴</span>
+          <span className="nav-brand">난 진짜 다 좋아</span>
         ) : (
           <button type="button" className="text-btn" onClick={handleBackHome}>
             <ArrowLeft size={16} aria-hidden="true" />
@@ -505,7 +523,7 @@ export const App: React.FC = () => {
               type="text"
               maxLength={120}
               className="composer-input"
-              placeholder="예) 아 오늘 교수님 진도 너무 빨라"
+              placeholder={`예) ${suggestions[0] ?? '난 진짜 다 좋아'}`}
               value={draftText}
               onChange={(e) => setDraftText(e.target.value)}
               autoFocus
@@ -521,7 +539,7 @@ export const App: React.FC = () => {
           </form>
 
           <div className="home-suggestions" aria-label="예시 문장 바로 해보기">
-            {EXAMPLE_SENTENCES.map((sentence) => (
+            {suggestions.map((sentence) => (
               <button
                 key={sentence}
                 type="button"
@@ -531,6 +549,15 @@ export const App: React.FC = () => {
                 {sentence}
               </button>
             ))}
+            <button
+              type="button"
+              className="suggestion-refresh-btn"
+              onClick={handleRefreshSuggestions}
+              aria-label="다른 예시 문장 보기"
+              title="다른 예시 문장 보기"
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+            </button>
           </div>
         </main>
       )}
@@ -559,8 +586,8 @@ export const App: React.FC = () => {
                     {phase === 1
                       ? proof.theory.scanningText
                       : phase === 2
-                      ? '추출한 수치로 공식을 조립하고 있어요'
-                      : `${activeMenuCount}개 메뉴 중 조건에 맞는 한 끼를 찾는 중`}
+                        ? '추출한 수치로 공식을 조립하고 있어요'
+                        : `${activeMenuCount}개 메뉴 중 조건에 맞는 한 끼를 찾는 중`}
                   </p>
                 </div>
               ) : (
@@ -604,23 +631,36 @@ export const App: React.FC = () => {
               onSkip={handleSkipMotion}
             />
 
-            {/* Staggered 3-Step Breakdown unfolds cleanly right after Act 4 reveal */}
+            {/* Collapsible 3-Step Breakdown (collapsed by default on mobile to keep screen crisp & scannable) */}
             {phase === 4 && (
-              <div className="step-list" aria-label="계산 과정">
-                {proof.steps.map((step, idx) => (
-                  <div
-                    key={`${runKey}-${step.label}`}
-                    className="step-row step-row--cascade"
-                    style={{ animationDelay: `${idx * 85}ms` }}
-                  >
-                    <span className="step-num">{step.label}</span>
-                    <div className="step-content">
-                      <div className="step-equation">{step.formula}</div>
-                      <p className="step-desc">{step.explanation}</p>
+              <details
+                key={`steps-${runKey}`}
+                className="proof-disclosure"
+                open={stepsOpen}
+                onToggle={(e) => setStepsOpen(e.currentTarget.open)}
+              >
+                <summary className="proof-disclosure-summary">
+                  <span className="proof-disclosure-label">계산 과정 보기</span>
+                  <span className="tabular proof-disclosure-formula">
+                    {proof.bridgeExpression}
+                  </span>
+                </summary>
+                <div className="step-list" aria-label="계산 과정">
+                  {proof.steps.map((step, idx) => (
+                    <div
+                      key={`${runKey}-${step.label}`}
+                      className="step-row step-row--cascade"
+                      style={{ animationDelay: `${idx * 70}ms` }}
+                    >
+                      <span className="step-num">{step.label}</span>
+                      <div className="step-content">
+                        <div className="step-equation">{step.formula}</div>
+                        <p className="step-desc">{step.explanation}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </details>
             )}
 
             {/* Bottom Actions appear smoothly once calculation lands */}
@@ -643,7 +683,7 @@ export const App: React.FC = () => {
               <div className="result-actions">
                 <button type="button" className="btn btn--primary" onClick={handleReroll}>
                   <RefreshCw size={15} aria-hidden="true" />
-                  <span>다른 방식으로 다시 찾기</span>
+                  <span>다시 찾기</span>
                 </button>
 
                 <button type="button" className="btn" onClick={handleBackHome}>

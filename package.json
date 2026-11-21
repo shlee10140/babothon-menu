@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "아무말 메뉴 — 아무 문장이나 입력하면 시계·날씨·환율·초성·자판 동선 등 13가지 규칙으로 오늘 메뉴를 찾아드려요",
+  "description": "난 진짜 다 좋아 — 아무 문장이나 입력하면 시계·날씨·환율·초성·자판 동선 등 13가지 규칙으로 오늘 메뉴를 찾아드려요",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

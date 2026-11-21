@@ -95,6 +95,17 @@
   color: var(--ink-primary);
 }
 
+@media (pointer: coarse) {
+  .icon-btn {
+    min-inline-size: 44px;
+    min-block-size: 44px;
+  }
+
+  .text-btn {
+    min-block-size: 44px;
+  }
+}
+
 /* === Native Modal <dialog> with Modern Top-Layer Entry/Exit & Scroll Containment === */
 dialog.paper-dialog {
   width: min(430px, calc(100dvw - 1.5rem));
@@ -212,6 +223,43 @@ dialog.paper-dialog[open]:where(:not([data-closing])) {
 .dialog-footer--share {
   flex-wrap: wrap;
   gap: 0.45rem;
+}
+
+/* Native Bottom-Sheet <dialog> on Mobile Viewports */
+@media (max-width: 520px) {
+  dialog.paper-dialog {
+    width: 100dvw;
+    max-width: 100dvw;
+    max-height: 86dvh;
+    margin: auto auto 0;
+    border-radius: 24px 24px 0 0;
+
+    @media (prefers-reduced-motion: no-preference) {
+      transform: translateY(28px);
+    }
+  }
+
+  dialog.paper-dialog[open]:where(:not([data-closing])) {
+    @media (prefers-reduced-motion: no-preference) {
+      transform: translateY(0);
+
+      @starting-style {
+        transform: translateY(28px);
+      }
+    }
+  }
+
+  .dialog-header {
+    padding: 1.05rem 1.1rem 0.75rem;
+  }
+
+  .dialog-body {
+    padding: 0.35rem 1.1rem 1rem;
+  }
+
+  .dialog-footer {
+    padding: 0.8rem 1.1rem max(0.95rem, env(safe-area-inset-bottom));
+  }
 }
 
 /* === Toast (Always in DOM for reliable screen-reader announcements) === */

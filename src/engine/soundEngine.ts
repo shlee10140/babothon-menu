@@ -236,6 +236,22 @@ export function playPhaseSound(
 }
 
 /**
+ * Ultra-soft tactile micro-pulse as Act 1 sweeps across each Hangul syllable.
+ */
+export function playScanTickSound(stepIndex: number, enabled: boolean): void {
+  const ctx = getReadyCtx(enabled);
+  if (!ctx) return;
+
+  const freq = 520 + (stepIndex % 6) * 44;
+  playTone(ctx, {
+    freq,
+    type: 'sine',
+    duration: 0.032,
+    gain: 0.015,
+  });
+}
+
+/**
  * Crisp micro verification tick for Act 2 sequential checkmarks.
  */
 export function playVerifyTickSound(stepIndex: number, enabled: boolean): void {
@@ -252,7 +268,7 @@ export function playVerifyTickSound(stepIndex: number, enabled: boolean): void {
 }
 
 /**
- * Soft tactile tick for the Act 3 candidate-pool elimination deceleration.
+ * Tactile rejection cut + tension tick for Act 3 candidate-pool elimination waves.
  */
 export function playReelTickSound(stepIndex: number, isLock: boolean, enabled: boolean): void {
   const ctx = getReadyCtx(enabled);
@@ -260,17 +276,26 @@ export function playReelTickSound(stepIndex: number, isLock: boolean, enabled: b
 
   if (isLock) {
     // Crisp lock-on double chime right before final reveal
-    playTone(ctx, { freq: 783.99, type: 'sine', duration: 0.09, gain: 0.042 });
-    playTone(ctx, { freq: 1046.5, type: 'sine', startOffset: 0.055, duration: 0.14, gain: 0.044 });
+    playTone(ctx, { freq: 783.99, type: 'sine', duration: 0.09, gain: 0.044 });
+    playTone(ctx, { freq: 1046.5, type: 'sine', startOffset: 0.055, duration: 0.15, gain: 0.046 });
     return;
   }
 
-  const freq = 380 + Math.min(stepIndex, 8) * 42;
+  // Crisp downward rejection cut paired with rising precision ping
+  playTone(ctx, {
+    freq: 360,
+    endFreq: 195,
+    type: 'triangle',
+    duration: 0.04,
+    gain: 0.024,
+    filterHz: 1150,
+  });
+  const freq = 420 + Math.min(stepIndex, 8) * 44;
   playTone(ctx, {
     freq,
-    type: 'triangle',
-    duration: 0.042,
-    gain: 0.026,
-    filterHz: 1500,
+    type: 'sine',
+    startOffset: 0.014,
+    duration: 0.036,
+    gain: 0.018,
   });
 }

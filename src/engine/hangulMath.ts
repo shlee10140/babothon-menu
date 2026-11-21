@@ -132,13 +132,137 @@ export const THEORY_ORDER: TheoryId[] = [
   'thermodynamics',
 ];
 
-export const EXAMPLE_SENTENCES = [
+const EVERGREEN_SUGGESTIONS = [
+  '난 진짜 다 좋아',
+  '그거 빼고 다 좋아',
   '교수님 진도 너무 빨라',
   '오늘 뭐 먹지 아무거나',
   '진짜 집 가고 싶다',
   '과제 언제 다 하냐',
   '배고픈데 나가기 귀찮아',
+  '팀플 언제 끝나냐',
+  '다이어트는 내일부터',
+  '친구랑 20분째 못 정하는 중',
+  '통장 잔고는 없는데 배는 고파',
+  '메뉴 고르다가 하루 다 가겠네',
+  '밥하기 너무 귀찮다',
+  '기분 전환할 메뉴 필요해',
+  '오늘 왜 이렇게 피곤하지',
+  '회의 끝나니까 당 떨어져',
+  '시험 기간이라 뇌가 멈췄어',
+  '배에서 꼬르륵 소리 난다',
+  '먹고 바로 눕고 싶다',
+  '오늘은 좀 색다른 거',
+  '아무 생각 없이 먹기 좋은 거',
+  '매운 거 땡기기도 하고 아닌 거 같기도',
+  '월급 들어왔으니 맛있는 거',
+  '오늘 운세 좋은 메뉴로',
+  '누가 메뉴 좀 딱 정해줬으면',
 ];
+
+function getTimeBasedSuggestions(hour: number): string[] {
+  if (hour >= 6 && hour <= 10) {
+    return ['아침부터 배고프네', '잠 덜 깼는데 뭐 먹지', '오전 수업 너무 졸려', '커피만 마실까 밥 먹을까'];
+  }
+  if (hour >= 11 && hour <= 14) {
+    return [
+      '점심시간 왜 이렇게 짧냐',
+      '점심 뭐 먹을지 30분째 고민 중',
+      '오후 버틸 메뉴 추천 좀',
+      '오늘 점심은 든든하게',
+    ];
+  }
+  if (hour >= 15 && hour <= 16) {
+    return ['애매한 시간인데 출출해', '당 떨어진다 뭐 먹지', '이른 저녁 먹을까 말까'];
+  }
+  if (hour >= 17 && hour <= 21) {
+    return [
+      '오늘 하루도 수고했다',
+      '저녁 뭐 먹지 난 다 좋아',
+      '퇴근하고 바로 먹고 싶다',
+      '오늘따라 맛있는 거 땡겨',
+    ];
+  }
+  return [
+    '이 시간에 배고프면 반칙인데',
+    '야식 먹으면 내일 후회할까',
+    '밤샘 과제 중 배고파',
+    '새벽에 갑자기 땡기는 메뉴',
+  ];
+}
+
+function getContextSuggestions(liveData?: LiveWorldData): string[] {
+  const out: string[] = [];
+  const clock = liveData?.clock ?? getNowClockContext();
+
+  if (clock.weekday === 2) out.push('월요일이라 기운이 하나도 없어');
+  else if (clock.weekday === 6) out.push('불금인데 맛있는 거 먹자');
+  else if (clock.weekday === 1 || clock.weekday === 7) {
+    out.push('주말이라 나가기 귀찮아', '주말엔 역시 맛있는 거');
+  }
+
+  if (liveData?.weather) {
+    const { tempC, weatherCode } = liveData.weather;
+    if (weatherCode >= 51) out.push('비 오는데 오늘 뭐 먹지', '이런 날엔 역시 국물인가');
+    if (tempC <= 8) out.push('오늘 날씨 진짜 춥다', '뜨끈한 거 땡기는 날이네');
+    else if (tempC >= 25) out.push('오늘 너무 더워서 입맛 없어', '시원한 거 하나 먹어야겠다');
+  }
+
+  return out;
+}
+
+function pickShuffled(pool: string[], exclude: Set<string>, limit: number): string[] {
+  const fresh = pool.filter((s) => !exclude.has(s));
+  const copy = [...(fresh.length >= limit ? fresh : pool)];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, limit);
+}
+
+/**
+ * Pick 5 dynamic, non-repeating home prompt suggestions blending time-of-day,
+ * live weather/day context, and relatable everyday Korean phrases.
+ */
+export function pickDynamicSuggestions(
+  liveData?: LiveWorldData,
+  previous: string[] = [],
+  count = 5
+): string[] {
+  const prevSet = new Set(previous);
+  const chosen: string[] = [];
+  const used = new Set<string>();
+
+  const addUnique = (items: string[]) => {
+    for (const item of items) {
+      if (chosen.length >= count) break;
+      if (!used.has(item)) {
+        used.add(item);
+        chosen.push(item);
+      }
+    }
+  };
+
+  const hour = liveData?.clock.hour ?? new Date().getHours();
+  addUnique(pickShuffled(getTimeBasedSuggestions(hour), prevSet, 1));
+  const ctxPool = getContextSuggestions(liveData);
+  if (ctxPool.length > 0) {
+    addUnique(pickShuffled(ctxPool, new Set([...prevSet, ...used]), 1));
+  }
+  addUnique(
+    pickShuffled(EVERGREEN_SUGGESTIONS, new Set([...prevSet, ...used]), count - chosen.length)
+  );
+
+  // Shuffle display order so the contextual chips feel naturally blended
+  for (let i = chosen.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chosen[i], chosen[j]] = [chosen[j], chosen[i]];
+  }
+  return chosen;
+}
+
+export const EXAMPLE_SENTENCES = EVERGREEN_SUGGESTIONS;
 
 export function getNowClockContext(now = new Date()): ClockContext {
   return {

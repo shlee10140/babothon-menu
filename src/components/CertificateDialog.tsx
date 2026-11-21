@@ -56,7 +56,7 @@ export const CertificateDialog: React.FC<CertificateDialogProps> = ({
   const handleDownload = () => {
     if (!dataUrl) return;
     const link = document.createElement('a');
-    link.download = `아무말메뉴_${proof.menu.name}.png`;
+    link.download = `난진짜다좋아_${proof.menu.name}.png`;
     link.href = dataUrl;
     link.click();
     onNotify('이미지를 저장했어요.');

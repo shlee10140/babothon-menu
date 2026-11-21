@@ -19,6 +19,7 @@ body {
   letter-spacing: -0.02em;
   word-break: keep-all;
   overflow-wrap: break-word;
+  overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -39,8 +40,10 @@ textarea {
   letter-spacing: inherit;
 }
 
-button {
+button,
+summary {
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 

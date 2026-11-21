@@ -157,12 +157,17 @@ export const ProofMotionStage: React.FC<ProofMotionStageProps> = ({
       return margin + (slot / (displaySyls.length - 1)) * (svgW - margin * 2);
     };
 
+    const menuCount = menuAnalysis.syllables.length;
+    const tileW = menuCount >= 6 ? 34 : menuCount === 5 ? 39 : 44;
+    const tileHalf = tileW / 2;
+    const tileFont = menuCount >= 6 ? '12' : '13.5';
+
     const getTargetX = (mIdx: number) => {
-      const count = menuAnalysis.syllables.length;
-      if (count <= 1) return svgW / 2;
-      const span = Math.min(230, count * 62);
+      if (menuCount <= 1) return svgW / 2;
+      const maxSpan = svgW - 64;
+      const span = Math.min(maxSpan, (menuCount - 1) * (tileW + 14));
       const start = svgW / 2 - span / 2;
-      return start + (mIdx / (count - 1)) * span;
+      return start + (mIdx / (menuCount - 1)) * span;
     };
 
     return (
@@ -233,20 +238,20 @@ export const ProofMotionStage: React.FC<ProofMotionStageProps> = ({
             return (
               <g key={mIdx} transform={`translate(${x}, ${botY})`}>
                 <rect
-                  x="-22"
+                  x={-tileHalf}
                   y="-16"
-                  width="44"
+                  width={tileW}
                   height="32"
-                  rx="11"
+                  rx="10"
                   fill={isRevealed ? '#191F28' : '#E5E8EB'}
                   style={{ transition: 'fill 260ms ease' }}
                 />
                 <text
                   x="0"
-                  y="5"
+                  y="4.5"
                   textAnchor="middle"
                   fill={isRevealed ? '#FFFFFF' : '#8B95A1'}
-                  fontSize="13.5"
+                  fontSize={tileFont}
                   fontWeight="700"
                 >
                   {isRevealed ? ms.char : phase >= 2 ? ms.cho : '?'}
