@@ -275,7 +275,7 @@ export const App: React.FC = () => {
       );
 
       recentTheoriesRef.current = [...recentTheoriesRef.current.slice(-11), theoryId];
-      recentMenuIdsRef.current = [...recentMenuIdsRef.current.slice(-40), menuId];
+      recentMenuIdsRef.current = [...recentMenuIdsRef.current.slice(-120), menuId];
       activeTheoryRef.current = theoryId;
 
       setDraftText(cleaned);
@@ -347,6 +347,16 @@ export const App: React.FC = () => {
   };
 
   const handleAddMenu = (name: string) => {
+    const existing = menus.find((m) => m.name === name);
+    if (existing) {
+      if (!existing.enabled) {
+        setMenus((prev) => prev.map((m) => (m.id === existing.id ? { ...m, enabled: true } : m)));
+        notify(`‘${name}’ 후보를 다시 켰어요.`);
+      } else {
+        notify(`‘${name}’ 메뉴는 이미 후보에 있어요.`);
+      }
+      return;
+    }
     const newId = `custom-${Date.now()}`;
     const newItem: MenuItem = {
       id: newId,

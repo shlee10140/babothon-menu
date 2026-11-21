@@ -67,7 +67,7 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     const used = new Set<string>();
 
     for (let i = 0; i < 8 && enabled.length > 0; i++) {
-      const idx = (seed + i * 17) % enabled.length;
+      const idx = (seed + i * 47) % enabled.length;
       const item = enabled[idx];
       if (!used.has(item.name)) {
         used.add(item.name);
@@ -169,7 +169,7 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
         </div>
       )}
 
-      {/* ACT 3: 114-Menu Pool Live Candidate Roulette & Lock-On */}
+      {/* ACT 3: Live Candidate Pool Roulette & Lock-On */}
       {phase === 3 && currentCandidate && (
         <div className={`reel-card ${isLocked ? 'reel-card--locked' : ''}`}>
           <div className="reel-left">

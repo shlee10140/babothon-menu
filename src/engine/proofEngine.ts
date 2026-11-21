@@ -290,6 +290,17 @@ function computeThermoExcitation(sentence: SentenceAnalysis): number {
   );
 }
 
+const MENU_ANALYSIS_CACHE = new Map<string, SentenceAnalysis>();
+
+function getMenuAnalysis(menuName: string): SentenceAnalysis {
+  let cached = MENU_ANALYSIS_CACHE.get(menuName);
+  if (!cached) {
+    cached = analyzeSentence(menuName);
+    MENU_ANALYSIS_CACHE.set(menuName, cached);
+  }
+  return cached;
+}
+
 const DEFAULT_FALLBACK_MENU: MenuItem = {
   id: 'fallback',
   name: '돼지국밥',
@@ -323,7 +334,7 @@ export function pickFreshTheoryAndMenu(
   const finalMenuPool = menuPool.length > 0 ? menuPool : safeMenus;
 
   const exactConspiracyMenus = finalMenuPool.filter(
-    (m) => buildStrictConspiracyMatches(sentence, analyzeSentence(m.name)).isCompleteExact
+    (m) => buildStrictConspiracyMatches(sentence, getMenuAnalysis(m.name)).isCompleteExact
   );
 
   const eligibleTheories = THEORY_ORDER.filter((t) => {
@@ -368,7 +379,7 @@ export function pickFreshTheoryAndMenu(
       fxSum - 2,
       fxSum + 2,
     ]);
-    const clean = finalMenuPool.filter((m) => lucky.has(analyzeSentence(m.name).totalStrokes));
+    const clean = finalMenuPool.filter((m) => lucky.has(getMenuAnalysis(m.name).totalStrokes));
     const pool = clean.length > 0 ? clean : finalMenuPool;
     return { theoryId, menuId: pool[Math.floor(Math.random() * pool.length)].id };
   }
@@ -383,7 +394,7 @@ export function pickFreshTheoryAndMenu(
       mDig + liveData.clock.month,
       mDig + sentence.charCount,
     ]);
-    const clean = finalMenuPool.filter((m) => lucky.has(analyzeSentence(m.name).totalStrokes));
+    const clean = finalMenuPool.filter((m) => lucky.has(getMenuAnalysis(m.name).totalStrokes));
     const pool = clean.length > 0 ? clean : finalMenuPool;
     return { theoryId, menuId: pool[Math.floor(Math.random() * pool.length)].id };
   }
@@ -392,17 +403,17 @@ export function pickFreshTheoryAndMenu(
     const ranked = finalMenuPool
       .map((m) => ({
         menu: m,
-        score: computeFingerprint(sentence, analyzeSentence(m.name)).matchPct,
+        score: computeFingerprint(sentence, getMenuAnalysis(m.name)).matchPct,
       }))
       .sort((a, b) => b.score - a.score);
-    const top = ranked.slice(0, Math.min(4, ranked.length));
+    const top = ranked.slice(0, Math.min(5, ranked.length));
     return { theoryId, menuId: top[Math.floor(Math.random() * top.length)].menu.id };
   }
 
   if (theoryId === 'keyboard') {
     const ranked = finalMenuPool
       .map((m) => {
-        const ma = analyzeSentence(m.name);
+        const ma = getMenuAnalysis(m.name);
         const dist = Math.hypot(
           sentence.centroidMm.x - ma.centroidMm.x,
           sentence.centroidMm.y - ma.centroidMm.y
@@ -410,7 +421,7 @@ export function pickFreshTheoryAndMenu(
         return { menu: m, dist };
       })
       .sort((a, b) => a.dist - b.dist);
-    const top = ranked.slice(0, Math.min(3, ranked.length));
+    const top = ranked.slice(0, Math.min(4, ranked.length));
     return { theoryId, menuId: top[Math.floor(Math.random() * top.length)].menu.id };
   }
 
@@ -418,12 +429,12 @@ export function pickFreshTheoryAndMenu(
     const sentRatio = sentence.batchimCount / Math.max(1, sentence.charCount);
     const ranked = finalMenuPool
       .map((m) => {
-        const ma = analyzeSentence(m.name);
+        const ma = getMenuAnalysis(m.name);
         const mRatio = ma.batchimCount / Math.max(1, ma.charCount);
         return { menu: m, diff: Math.abs(sentRatio - mRatio) };
       })
       .sort((a, b) => a.diff - b.diff);
-    const top = ranked.slice(0, Math.min(4, ranked.length));
+    const top = ranked.slice(0, Math.min(5, ranked.length));
     return { theoryId, menuId: top[Math.floor(Math.random() * top.length)].menu.id };
   }
 
@@ -450,7 +461,7 @@ export function pickFreshTheoryAndMenu(
       cm.endHour12 * 3,
     ]);
     const superClean = finalMenuPool.filter((m) =>
-      luckyTargets.has(analyzeSentence(m.name).totalStrokes)
+      luckyTargets.has(getMenuAnalysis(m.name).totalStrokes)
     );
     const pool = superClean.length > 0 ? superClean : finalMenuPool;
     return { theoryId, menuId: pool[Math.floor(Math.random() * pool.length)].id };

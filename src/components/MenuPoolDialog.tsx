@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Search } from 'lucide-react';
 import { MenuItem } from '../types/menu';
 import { bindModernDialog, closeTopLayer } from '../engine/dialogCompat';
+import { matchesMenuQuery } from '../engine/menuCatalog';
 
 interface MenuPoolDialogProps {
   open: boolean;
@@ -26,6 +27,7 @@ export const MenuPoolDialog: React.FC<MenuPoolDialogProps> = ({
 }) => {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [newMenuName, setNewMenuName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORY);
 
   useEffect(() => {
@@ -47,21 +49,26 @@ export const MenuPoolDialog: React.FC<MenuPoolDialogProps> = ({
   }, [open]);
 
   const categories = useMemo(() => {
-    const seen = new Set<string>();
-    const list: string[] = [ALL_CATEGORY];
+    const counts = new Map<string, number>();
+    const order: string[] = [];
     menus.forEach((m) => {
-      if (m.category && !seen.has(m.category)) {
-        seen.add(m.category);
-        list.push(m.category);
+      if (m.category) {
+        if (!counts.has(m.category)) order.push(m.category);
+        counts.set(m.category, (counts.get(m.category) ?? 0) + 1);
       }
     });
-    return list;
+    return [
+      { name: ALL_CATEGORY, count: menus.length },
+      ...order.map((name) => ({ name, count: counts.get(name) ?? 0 })),
+    ];
   }, [menus]);
 
   const filteredMenus = useMemo(() => {
-    if (activeCategory === ALL_CATEGORY) return menus;
-    return menus.filter((m) => m.category === activeCategory);
-  }, [menus, activeCategory]);
+    return menus.filter((m) => {
+      if (activeCategory !== ALL_CATEGORY && m.category !== activeCategory) return false;
+      return matchesMenuQuery(m.name, searchQuery);
+    });
+  }, [menus, activeCategory, searchQuery]);
 
   const allFilteredEnabled =
     filteredMenus.length > 0 && filteredMenus.every((m) => m.enabled);
@@ -72,6 +79,7 @@ export const MenuPoolDialog: React.FC<MenuPoolDialogProps> = ({
     if (!cleaned) return;
     onAddMenu(cleaned);
     setNewMenuName('');
+    setSearchQuery('');
     setActiveCategory(ALL_CATEGORY);
   };
 
@@ -85,6 +93,7 @@ export const MenuPoolDialog: React.FC<MenuPoolDialogProps> = ({
   };
 
   const activeCount = menus.filter((m) => m.enabled).length;
+  const isFiltered = activeCategory !== ALL_CATEGORY || searchQuery.trim().length > 0;
 
   return (
     <dialog
@@ -95,7 +104,7 @@ export const MenuPoolDialog: React.FC<MenuPoolDialogProps> = ({
     >
       <div className="dialog-header">
         <h2 id="pool-dialog-title" className="dialog-title">
-          메뉴 후보 ({activeCount})
+          메뉴 후보 ({activeCount}/{menus.length})
         </h2>
         <button type="button" className="icon-btn" onClick={handleClose} aria-label="닫기">
           <X size={18} aria-hidden="true" />
@@ -122,40 +131,82 @@ export const MenuPoolDialog: React.FC<MenuPoolDialogProps> = ({
           </button>
         </form>
 
-        <div className="menu-cat-bar">
-          <div className="menu-cat-tabs" role="group" aria-label="카테고리 필터">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className="menu-cat-pill"
-                aria-pressed={activeCategory === cat}
-                onClick={() => setActiveCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-          {activeCategory !== ALL_CATEGORY && (
-            <button type="button" className="menu-cat-action" onClick={handleBulkToggle}>
-              {allFilteredEnabled ? '이 분류 끄기' : '이 분류 켜기'}
+        <div className="menu-search-wrap">
+          <Search size={15} className="menu-search-icon" aria-hidden="true" />
+          <label htmlFor="menu-search-input" className="sr-only">
+            메뉴 이름 또는 초성 검색
+          </label>
+          <input
+            id="menu-search-input"
+            type="search"
+            maxLength={20}
+            className="clean-input menu-search-input"
+            placeholder="메뉴 검색 (이름 · 초성 예: ㄱㅊ)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="menu-search-clear"
+              onClick={() => setSearchQuery('')}
+              aria-label="검색어 지우기"
+            >
+              <X size={14} aria-hidden="true" />
             </button>
           )}
         </div>
 
-        <div className="menu-grid" role="group" aria-label="메뉴 후보 선택">
-          {filteredMenus.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className="menu-chip"
-              aria-pressed={m.enabled}
-              onClick={() => onToggleMenu(m.id)}
-            >
-              <span>{m.name}</span>
-            </button>
-          ))}
+        <div className="menu-cat-bar">
+          <div className="menu-cat-tabs" role="group" aria-label="카테고리 필터">
+            {categories.map((cat) => (
+              <button
+                key={cat.name}
+                type="button"
+                className="menu-cat-pill"
+                aria-pressed={activeCategory === cat.name}
+                onClick={() => setActiveCategory(cat.name)}
+              >
+                <span>{cat.name}</span>
+                <span className="menu-cat-count">{cat.count}</span>
+              </button>
+            ))}
+          </div>
+          {isFiltered && filteredMenus.length > 0 && (
+            <div className="menu-cat-meta">
+              <span className="menu-cat-summary">표시 {filteredMenus.length}개</span>
+              <button type="button" className="menu-cat-action" onClick={handleBulkToggle}>
+                {allFilteredEnabled
+                  ? searchQuery.trim()
+                    ? '검색 결과 끄기'
+                    : '이 분류 끄기'
+                  : searchQuery.trim()
+                  ? '검색 결과 켜기'
+                  : '이 분류 켜기'}
+              </button>
+            </div>
+          )}
         </div>
+
+        {filteredMenus.length > 0 ? (
+          <div className="menu-grid" role="group" aria-label="메뉴 후보 선택">
+            {filteredMenus.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                className="menu-chip"
+                aria-pressed={m.enabled}
+                onClick={() => onToggleMenu(m.id)}
+              >
+                <span>{m.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="menu-empty-hint">
+            ‘{searchQuery.trim()}’에 맞는 메뉴가 없어요. 위에서 직접 추가할 수 있어요.
+          </p>
+        )}
       </div>
 
       <div className="dialog-footer">
@@ -165,6 +216,7 @@ export const MenuPoolDialog: React.FC<MenuPoolDialogProps> = ({
           style={{ marginRight: 'auto' }}
           onClick={() => {
             setActiveCategory(ALL_CATEGORY);
+            setSearchQuery('');
             onResetMenus();
           }}
         >
