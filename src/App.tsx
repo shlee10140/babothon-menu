@@ -110,6 +110,12 @@ export const App: React.FC = () => {
   const [runKey, setRunKey] = useState(initial.runKey);
   const [rerollCount, setRerollCount] = useState(0);
   const [phase, setPhase] = useState<MotionPhase>(initial.view === 'result' ? 1 : 4);
+  const phaseTimersRef = useRef<number[]>([]);
+
+  const clearPhaseTimers = useCallback(() => {
+    phaseTimersRef.current.forEach((id) => window.clearTimeout(id));
+    phaseTimersRef.current = [];
+  }, []);
 
   const [soundOn, setSoundOn] = useState<boolean>(() => loadSoundPreference());
   const soundOnRef = useRef(soundOn);
@@ -216,8 +222,9 @@ export const App: React.FC = () => {
     }
   }, [view, shareUrl, proof.menu.name]);
 
-  // Drive the ~3.2s 4-Act kinetic motion-graphic deduction choreography + Web Audio cues
+  // Drive the ~3.8s 4-Act kinetic motion-graphic deduction choreography + Web Audio cues
   useEffect(() => {
+    clearPhaseTimers();
     if (view !== 'result' || runKey === 0) return;
     const theoryForRun = activeTheoryRef.current;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -245,12 +252,12 @@ export const App: React.FC = () => {
       playPhaseSound(4, theoryForRun, soundOnRef.current);
     }, 3860);
 
+    phaseTimersRef.current = [t2, t3, t4];
+
     return () => {
-      window.clearTimeout(t2);
-      window.clearTimeout(t3);
-      window.clearTimeout(t4);
+      clearPhaseTimers();
     };
-  }, [runKey, view]);
+  }, [runKey, view, clearPhaseTimers]);
 
   const runFreshCalculation = useCallback(
     (text: string, currentMenus: MenuItem[], isReroll = false) => {
@@ -307,6 +314,7 @@ export const App: React.FC = () => {
   };
 
   const handleSkipMotion = () => {
+    clearPhaseTimers();
     setPhase(4);
   };
 
