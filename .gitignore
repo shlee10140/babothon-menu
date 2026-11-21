@@ -1,0 +1,16 @@
+# Dependencies & build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Environment & secrets (never commit keys)
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+*.log

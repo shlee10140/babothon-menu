@@ -1,0 +1,250 @@
+/* === Tactile Buttons === */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 48px;
+  padding: 0 1.15rem;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--ink-primary);
+  font-weight: 600;
+  font-size: 0.94rem;
+  white-space: nowrap;
+  transition: background-color 0.14s ease, color 0.14s ease, transform 0.2s ease-out;
+  transition-timing-function: ease, ease, var(--spring-easing);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+}
+
+.btn:active:not(:disabled) {
+  @media (prefers-reduced-motion: no-preference) {
+    transform: scale(0.98);
+  }
+}
+
+.btn--primary {
+  background: var(--ink-primary);
+  color: #ffffff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: #2f3744;
+}
+
+.btn--accent {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.btn--accent:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn--sm {
+  min-height: 36px;
+  padding: 0 0.85rem;
+  font-size: 0.84rem;
+  border-radius: var(--radius-sm);
+}
+
+.text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 36px;
+  padding: 0 0.65rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.text-btn:hover {
+  background: var(--bg-surface);
+  color: var(--ink-primary);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 36px;
+  min-block-size: 36px;
+  padding: 0 0.35rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-secondary);
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.icon-btn[aria-pressed='false'] {
+  color: var(--ink-muted);
+}
+
+.icon-btn:hover {
+  background: var(--bg-surface);
+  color: var(--ink-primary);
+}
+
+/* === Native Modal <dialog> with Modern Top-Layer Entry/Exit & Scroll Containment === */
+dialog.paper-dialog {
+  width: min(430px, calc(100dvw - 1.5rem));
+  max-height: min(88dvh, 720px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: var(--bg-elevated);
+  color: var(--ink-primary);
+  box-shadow: var(--shadow-dialog);
+  overflow: auto;
+  opacity: 0;
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 0.22s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+
+  @media (prefers-reduced-motion: no-preference) {
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+dialog.paper-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.paper-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(15, 23, 42, 0);
+  backdrop-filter: blur(0px);
+  transition-property: background-color, backdrop-filter, display, overlay;
+  transition-duration: 0.22s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+dialog.paper-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.paper-dialog[open]:where(:not([data-closing])) {
+  opacity: 1;
+
+  @starting-style {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    transform: translateY(0) scale(1);
+    transition-timing-function: var(--spring-easing);
+
+    @starting-style {
+      transform: translateY(14px) scale(0.96);
+    }
+  }
+
+  &::backdrop {
+    background-color: rgba(15, 23, 42, 0.36);
+    backdrop-filter: blur(4px);
+
+    @starting-style {
+      background-color: rgba(15, 23, 42, 0);
+      backdrop-filter: blur(0px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.paper-dialog,
+  dialog.paper-dialog::backdrop {
+    transition-duration: 0.1s;
+  }
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1.15rem 1.25rem 0.85rem;
+  background: var(--bg-elevated);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.dialog-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.dialog-body {
+  padding: 0.4rem 1.25rem 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.9rem 1.25rem;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--line);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.dialog-footer--share {
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+/* === Toast (Always in DOM for reliable screen-reader announcements) === */
+.toast {
+  position: fixed;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: min(90dvw, 340px);
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius-pill);
+  background: rgba(25, 31, 40, 0.92);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+
+  @media (prefers-reduced-motion: no-preference) {
+    transform: translate(-50%, 8px);
+    transition: opacity 0.2s ease-out, transform 0.26s ease-out;
+    transition-timing-function: ease-out, var(--spring-easing);
+  }
+}
+
+.toast.is-visible {
+  opacity: 1;
+
+  @media (prefers-reduced-motion: no-preference) {
+    transform: translate(-50%, 0);
+  }
+}
