@@ -417,13 +417,19 @@
   transform: scaleX(1);
 
   @media (prefers-reduced-motion: no-preference) {
-    animation: segProgress 1.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: segProgress var(--act1-ms, 1.32s) cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+.cinema-seg:nth-child(2).cinema-seg--active .cinema-seg-fill {
+  @media (prefers-reduced-motion: no-preference) {
+    animation-duration: var(--act2-ms, 1.35s);
   }
 }
 
 .cinema-seg:nth-child(3).cinema-seg--active .cinema-seg-fill {
   @media (prefers-reduced-motion: no-preference) {
-    animation-duration: 2.55s;
+    animation-duration: var(--act3-ms, 2.55s);
   }
 }
 

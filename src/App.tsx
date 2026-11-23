@@ -26,7 +26,11 @@ import {
   unlockAudio,
 } from './engine/soundEngine';
 import { ProofMotionStage } from './components/ProofMotionStage';
-import { DeductionCinemaBar } from './components/DeductionCinemaBar';
+import {
+  CinemaTimingPlan,
+  computeCinemaTiming,
+  DeductionCinemaBar,
+} from './components/DeductionCinemaBar';
 import { MenuPoolDialog } from './components/MenuPoolDialog';
 import { CertificateDialog } from './components/CertificateDialog';
 
@@ -146,6 +150,15 @@ export const App: React.FC = () => {
   const [liveData, setLiveData] = useState<LiveWorldData>(initial.liveData);
   const latestLiveRef = useRef<LiveWorldData>(initial.liveData);
   const [runKey, setRunKey] = useState(initial.runKey);
+  const [cinemaTiming, setCinemaTiming] = useState<CinemaTimingPlan>(() =>
+    computeCinemaTiming(
+      initial.submittedText || '오늘 뭐 먹지',
+      initial.activeTheoryId,
+      initial.menus.filter((m) => m.enabled).length
+    )
+  );
+  const cinemaTimingRef = useRef<CinemaTimingPlan>(cinemaTiming);
+  cinemaTimingRef.current = cinemaTiming;
   const rerollCountRef = useRef(0);
   const recentNudgesRef = useRef<string[]>([]);
   const [rerollNudge, setRerollNudge] = useState<{
@@ -272,11 +285,12 @@ export const App: React.FC = () => {
     }
   }, [view, shareUrl, proof.menu.name]);
 
-  // Drive the ~3.8s 4-Act kinetic motion-graphic deduction choreography + Web Audio cues
+  // Drive the dynamic workload-proportional 4-Act kinetic deduction choreography + Web Audio cues
   useEffect(() => {
     clearPhaseTimers();
     if (view !== 'result' || runKey === 0) return;
     const theoryForRun = activeTheoryRef.current;
+    const timing = cinemaTimingRef.current;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduced) {
       setPhase(4);
@@ -290,17 +304,17 @@ export const App: React.FC = () => {
     const t2 = window.setTimeout(() => {
       setPhase(2);
       playPhaseSound(2, theoryForRun, soundOnRef.current);
-    }, 1300);
+    }, timing.act1Ms);
 
     const t3 = window.setTimeout(() => {
       setPhase(3);
       playPhaseSound(3, theoryForRun, soundOnRef.current);
-    }, 2650);
+    }, timing.act1Ms + timing.act2Ms);
 
     const t4 = window.setTimeout(() => {
       setPhase(4);
       playPhaseSound(4, theoryForRun, soundOnRef.current);
-    }, 5320);
+    }, timing.totalMs);
 
     phaseTimersRef.current = [t2, t3, t4];
 
@@ -336,11 +350,16 @@ export const App: React.FC = () => {
       recentMenuIdsRef.current = [...recentMenuIdsRef.current.slice(-120), menuId];
       activeTheoryRef.current = theoryId;
 
+      const enabledCount = currentMenus.filter((m) => m.enabled).length;
+      const nextTiming = computeCinemaTiming(cleaned, theoryId, enabledCount, Math.random());
+      cinemaTimingRef.current = nextTiming;
+
       setDraftText(cleaned);
       setSubmittedText(cleaned);
       setActiveTheoryId(theoryId);
       setActiveMenuId(menuId);
       setLiveData(freshLive);
+      setCinemaTiming(nextTiming);
       setVariantSeed((s) => s + 1);
       if (isReroll) {
         const nextCount = rerollCountRef.current + 1;
@@ -629,6 +648,7 @@ export const App: React.FC = () => {
               runKey={runKey}
               menus={menus}
               liveData={liveData}
+              timing={cinemaTiming}
               soundOn={soundOn}
               onSkip={handleSkipMotion}
             />

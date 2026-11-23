@@ -8,12 +8,91 @@ import {
   playVerifyTickSound,
 } from '../engine/soundEngine';
 
+export interface CinemaTimingPlan {
+  act1Ms: number;
+  act2Ms: number;
+  act3SweepMs: number;
+  act3LockHoldMs: number;
+  act3Ms: number;
+  totalMs: number;
+  waveCount: number;
+}
+
+/**
+ * Compute an organic, workload-proportional timing plan (always ~5.0s–6.85s)
+ * based on input sentence length/strokes, formula complexity, and active candidate count.
+ */
+export function computeCinemaTiming(
+  text: string,
+  theoryId: TheoryId,
+  activeMenuCount: number,
+  jitterSeed = Math.random()
+): CinemaTimingPlan {
+  const analysis = analyzeSentence(text);
+  const chars = Math.min(24, analysis.charCount);
+  const strokes = Math.min(130, analysis.totalStrokes);
+
+  // Deterministic-feeling micro jitter split into 3 independent offsets in [-1, 1]
+  const j1 = Math.sin(jitterSeed * 91.7 + 1.3);
+  const j2 = Math.sin(jitterSeed * 157.3 + 2.9);
+  const j3 = Math.sin(jitterSeed * 223.1 + 4.7);
+
+  // Act 1: Scales with syllable count & stroke density (1140..1720ms)
+  const act1Raw = 1160 + chars * 22 + strokes * 1.6 + j1 * 110;
+  const act1Ms = Math.round(Math.max(1140, Math.min(1720, act1Raw)));
+
+  // Act 2: Scales with theory complexity (live feeds / multi-step astronomy / periodic) (1200..1740ms)
+  const heavyTheoryBonus =
+    theoryId === 'weather' || theoryId === 'fx' || theoryId === 'moon' || theoryId === 'periodic'
+      ? 140
+      : theoryId === 'constellation' || theoryId === 'keyboard' || theoryId === 'unicode'
+      ? 80
+      : 0;
+  const act2Raw = 1260 + heavyTheoryBonus + Math.min(160, analysis.wordCount * 28) + j2 * 130;
+  const act2Ms = Math.round(Math.max(1180, Math.min(1740, act2Raw)));
+
+  // Act 3: Scales with active menu pool size (fewer menus -> brisker, 400 menus -> richer culling)
+  const poolFactor = Math.min(1, Math.log10(Math.max(10, activeMenuCount)) / Math.log10(400));
+  const waveCount = Math.max(
+    7,
+    Math.min(11, Math.round(6.8 + poolFactor * 3.1 + (j3 > 0.35 ? 1 : j3 < -0.55 ? -1 : 0)))
+  );
+  const sweepRaw = 1520 + poolFactor * 540 + (waveCount - 8) * 95 + j3 * 130;
+  const act3SweepMs = Math.round(Math.max(1550, Math.min(2380, sweepRaw)));
+  const act3LockHoldMs = Math.round(980 + Math.abs(j1) * 160); // 980..1140ms crisp hold
+
+  let act3Ms = act3SweepMs + act3LockHoldMs;
+  let totalMs = act1Ms + act2Ms + act3Ms;
+
+  // Guarantee > 5.05s minimum and <= 6.85s cap so every run feels alive without ever dragging
+  if (totalMs < 5060) {
+    const pad = 5060 - totalMs + Math.round(Math.abs(j2) * 180);
+    act3Ms += pad;
+    totalMs += pad;
+  } else if (totalMs > 6850) {
+    const trim = totalMs - 6850;
+    act3Ms = Math.max(2450, act3Ms - trim);
+    totalMs = act1Ms + act2Ms + act3Ms;
+  }
+
+  return {
+    act1Ms,
+    act2Ms,
+    act3SweepMs: Math.min(act3SweepMs, act3Ms - 920),
+    act3LockHoldMs: act3Ms - Math.min(act3SweepMs, act3Ms - 920),
+    act3Ms,
+    totalMs,
+    waveCount,
+  };
+}
+
 interface DeductionCinemaBarProps {
   proof: ProofResult;
   phase: 1 | 2 | 3 | 4;
   runKey: number;
   menus: MenuItem[];
   liveData: LiveWorldData;
+  timing: CinemaTimingPlan;
   soundOn: boolean;
   onSkip: () => void;
 }
@@ -32,7 +111,6 @@ interface ReelCandidate {
 }
 
 function tokenizeBridgeFormula(expr: string): FormulaToken[] {
-  // Remove outer grouping parentheses while turning inner value parens like "음력(11일)" -> "음력 11일"
   const formatted = expr
     .replace(/\(([^()]+)\)/g, (_, inner: string) =>
       /[+\-−×÷=]/.test(inner) ? inner : ` ${inner}`
@@ -93,15 +171,24 @@ function buildRejectReason(
   return getSecondaryRejectReason(theoryId);
 }
 
-// 9 decelerating elimination waves over ~1.62s + ~1.05s locked hold before Act 4 reveal
-const REEL_DELAYS_MS = [0, 115, 245, 395, 570, 775, 1015, 1295, 1615];
-const VERIFY_DELAYS_MS = [140, 460, 820];
 const MATRIX_DOT_COUNT = 40; // 10 x 4 precision candidate grid
+
+/**
+ * Generate smooth decelerating wave timestamps across [0, sweepMs].
+ */
+function buildDeceleratingDelays(steps: number, sweepMs: number): number[] {
+  if (steps <= 1) return [0];
+  const delays: number[] = [];
+  for (let i = 0; i < steps; i++) {
+    const progress = i / (steps - 1);
+    delays.push(Math.round(Math.pow(progress, 1.55) * sweepMs));
+  }
+  return delays;
+}
 
 function buildSurvivorCurve(total: number, steps: number): number[] {
   const safeTotal = Math.max(1, total);
   if (steps <= 1) return [1];
-  const ratios = [1, 0.62, 0.36, 0.19, 0.095, 0.045, 0.018, 0.007, 0];
   const curve: number[] = [];
   for (let i = 0; i < steps; i++) {
     if (i === 0) {
@@ -109,7 +196,9 @@ function buildSurvivorCurve(total: number, steps: number): number[] {
     } else if (i === steps - 1) {
       curve.push(1);
     } else {
-      const ratio = ratios[Math.min(i, ratios.length - 2)];
+      const t = i / (steps - 1);
+      // Exponential culling curve that drops sharply then narrows into the final few candidates
+      const ratio = Math.pow(1 - t, 2.85);
       const prev = curve[i - 1];
       const raw = Math.max(2, Math.round(safeTotal * ratio));
       curve.push(Math.min(Math.max(1, prev - 1), raw));
@@ -119,7 +208,6 @@ function buildSurvivorCurve(total: number, steps: number): number[] {
 }
 
 function buildDotSurvivalOrder(seed: number): number[] {
-  // Deterministic Fisher-Yates permutation so dots extinguish organically across the 10x4 grid
   const arr = Array.from({ length: MATRIX_DOT_COUNT }, (_, i) => i);
   let s = (seed * 9301 + 49297) % 233280;
   for (let i = arr.length - 1; i > 0; i--) {
@@ -132,8 +220,9 @@ function buildDotSurvivalOrder(seed: number): number[] {
 
 function getEliminationStageLabel(reelIdx: number, lastIdx: number): string {
   if (reelIdx >= lastIdx) return '유일 후보 확정';
-  if (reelIdx <= 2) return '1차 조건 미달 제외';
-  if (reelIdx <= 5) return '2차 획수 오차 기각';
+  const ratio = reelIdx / Math.max(1, lastIdx);
+  if (ratio <= 0.32) return '1차 조건 미달 제외';
+  if (ratio <= 0.68) return '2차 획수 오차 기각';
   return '3차 최종 후보 압축';
 }
 
@@ -143,6 +232,7 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
   runKey,
   menus,
   liveData,
+  timing,
   soundOn,
   onSkip,
 }) => {
@@ -159,15 +249,16 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     [proof.sentence.syllables]
   );
 
-  // Build 8 real decoy candidates + final winning menu with real mathematical rejection reasons
+  // Build dynamic decoy candidates + final winning menu scaled to timing.waveCount
   const reelItems = useMemo<ReelCandidate[]>(() => {
     const enabled = menus.filter((m) => m.enabled && m.name !== proof.menu.name);
     const seed = proof.sentence.utf16Sum + runKey * 37;
     const targetStrokes = proof.menuAnalysis.totalStrokes;
+    const decoyTarget = Math.max(2, timing.waveCount - 1);
     const picked: ReelCandidate[] = [];
     const used = new Set<string>();
 
-    for (let i = 0; i < 8 && enabled.length > 0; i++) {
+    for (let i = 0; i < decoyTarget && enabled.length > 0; i++) {
       const idx = (seed + i * 47) % enabled.length;
       const item = enabled[idx];
       if (!used.has(item.name)) {
@@ -198,6 +289,7 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     proof.menuAnalysis.totalStrokes,
     proof.sentence.utf16Sum,
     proof.theory.id,
+    timing.waveCount,
     runKey,
   ]);
 
@@ -206,7 +298,6 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     [activeMenuCount, reelItems.length]
   );
 
-  // Rank of each of the 40 dots (rank 0 = final surviving pinpoint!)
   const dotRankMap = useMemo(() => {
     const order = buildDotSurvivalOrder(proof.sentence.utf16Sum + runKey * 19);
     const ranks = new Array<number>(MATRIX_DOT_COUNT).fill(0);
@@ -216,7 +307,6 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     return ranks;
   }, [proof.sentence.utf16Sum, runKey]);
 
-  // Convergence spectrum bars for Act 2 (14 bars peaking sharply at target index)
   const spectrumBars = useMemo(() => {
     const count = 14;
     const peakIdx = Math.max(
@@ -256,12 +346,13 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     return () => cancelAnimationFrame(rafId);
   }, [runKey, phase === 4]);
 
-  // Act 1 live syllable-by-syllable scanner sweep
+  // Act 1 live syllable-by-syllable scanner sweep paced dynamically to timing.act1Ms
   useEffect(() => {
     if (phase !== 1) return;
     setScanIdx(0);
     const total = Math.max(1, scanSyllables.length);
-    const stepMs = Math.max(75, Math.min(130, Math.floor(1050 / total)));
+    const sweepWindow = Math.max(500, Math.round(timing.act1Ms * 0.82));
+    const stepMs = Math.max(65, Math.min(180, Math.floor(sweepWindow / total)));
     const timers: number[] = [];
 
     for (let i = 1; i < total; i++) {
@@ -276,9 +367,9 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     return () => {
       timers.forEach((id) => window.clearTimeout(id));
     };
-  }, [phase, runKey, scanSyllables.length, soundOn]);
+  }, [phase, runKey, scanSyllables.length, timing.act1Ms, soundOn]);
 
-  // Act 2 staggered verification checkmarks + smooth target-stroke convergence readout
+  // Act 2 staggered verification checkmarks + convergence readout scaled to timing.act2Ms
   useEffect(() => {
     if (phase < 2) {
       setVerifiedStep(0);
@@ -291,7 +382,12 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
       return;
     }
 
-    const timers = VERIFY_DELAYS_MS.map((delay, idx) =>
+    const checkDelays = [
+      Math.round(timing.act2Ms * 0.11),
+      Math.round(timing.act2Ms * 0.39),
+      Math.round(timing.act2Ms * 0.68),
+    ];
+    const timers = checkDelays.map((delay, idx) =>
       window.setTimeout(() => {
         setVerifiedStep(idx + 1);
         playVerifyTickSound(idx, soundOn);
@@ -301,8 +397,9 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     let rafId = 0;
     const start = performance.now();
     const target = proof.menuAnalysis.totalStrokes;
+    const countDuration = Math.max(600, Math.round(timing.act2Ms * 0.66));
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / 860);
+      const t = Math.min(1, (now - start) / countDuration);
       const eased = 1 - Math.pow(1 - t, 3);
       setAct2TargetNum(Math.max(1, Math.round(target * eased)));
       if (t < 1) rafId = requestAnimationFrame(tick);
@@ -313,9 +410,9 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
       timers.forEach((id) => window.clearTimeout(id));
       cancelAnimationFrame(rafId);
     };
-  }, [phase, runKey, proof.menuAnalysis.totalStrokes, soundOn]);
+  }, [phase, runKey, proof.menuAnalysis.totalStrokes, timing.act2Ms, soundOn]);
 
-  // Act 3 decelerating elimination waves
+  // Act 3 decelerating elimination waves scaled to timing.act3SweepMs
   useEffect(() => {
     if (phase !== 3) {
       setReelIdx(0);
@@ -324,8 +421,9 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
 
     const timers: number[] = [];
     const lastIdx = reelItems.length - 1;
+    const waveDelays = buildDeceleratingDelays(reelItems.length, timing.act3SweepMs);
 
-    REEL_DELAYS_MS.slice(0, reelItems.length).forEach((delay, step) => {
+    waveDelays.forEach((delay, step) => {
       const targetIdx = Math.min(step, lastIdx);
       const isFinal = targetIdx === lastIdx;
       const id = window.setTimeout(() => {
@@ -338,7 +436,7 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
     return () => {
       timers.forEach((id) => window.clearTimeout(id));
     };
-  }, [phase, runKey, reelItems.length, soundOn]);
+  }, [phase, runKey, reelItems.length, timing.act3SweepMs, soundOn]);
 
   if (phase === 4) return null;
 
@@ -367,7 +465,6 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
           Math.ceil((prevRemainingCount / Math.max(1, activeMenuCount)) * MATRIX_DOT_COUNT)
         );
 
-  // Recent rejected items for the live rejection tape (latest first, up to 2 rows)
   const recentRejected =
     phase === 3 && reelIdx > 0
       ? reelItems.slice(Math.max(0, reelIdx - 2), reelIdx).reverse()
@@ -390,8 +487,14 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
       : activeSyl.char
     : '';
 
+  const cinemaStyle = {
+    '--act1-ms': `${timing.act1Ms}ms`,
+    '--act2-ms': `${timing.act2Ms}ms`,
+    '--act3-ms': `${timing.act3Ms}ms`,
+  } as React.CSSProperties;
+
   return (
-    <div className="cinema-panel" aria-live="off">
+    <div className="cinema-panel" style={cinemaStyle} aria-live="off">
       {/* Sleek 3-Act Hairline Progress Header + Elapsed Timer + Instant Skip */}
       <div className="cinema-top">
         <div className="cinema-progress-group">
@@ -574,7 +677,6 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
               </div>
             </div>
 
-            {/* 10x4 Precision Dot Matrix: Alive -> Coral Rejection Flash -> Dimmed -> 1 Survivor */}
             <div className="elim-matrix" aria-hidden="true">
               {dotRankMap.map((rank, dotIdx) => {
                 const isFinalDot = rank === 0;
@@ -605,7 +707,6 @@ export const DeductionCinemaBar: React.FC<DeductionCinemaBarProps> = ({
               />
             </div>
 
-            {/* Live Active Inspection + Real Mathematical Rejection Tape */}
             <div className="elim-stage-foot">
               <div
                 key={`inspect-${reelIdx}-${currentCandidate.name}`}
