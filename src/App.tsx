@@ -720,7 +720,7 @@ export const App: React.FC = () => {
 
       <footer className="site-footer" aria-label="서비스 및 데이터 출처 안내">
         <p className="site-footer-line">
-          입력 문장은 서버에 저장되지 않으며 브라우저에서만 처리됩니다 · 비영리 오락 서비스 · Hosted on{' '}
+          입력 문장은 서버에 저장되지 않으며 브라우저에서만 처리됩니다 · 2026 바보톤 · Hosted on{' '}
           <a href="https://vercel.com" target="_blank" rel="noopener noreferrer">
             Vercel
           </a>
