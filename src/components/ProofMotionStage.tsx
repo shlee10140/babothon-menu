@@ -445,38 +445,60 @@ export const ProofMotionStage: React.FC<ProofMotionStageProps> = ({
         aria-label="실시간 바깥 날씨 측정 모션"
       >
         {phase === 1 && <div className="scan-beam" aria-hidden="true" />}
-        <div className="weather-layout">
-          <div className="weather-hero motion-pop-in">
-            <div className="weather-icon-badge" aria-hidden="true">
-              <IconComp size={26} strokeWidth={2} />
+        <div className="weather-wrap">
+          <div className="weather-layout">
+            <div className="weather-hero motion-pop-in">
+              <div className="weather-icon-badge" aria-hidden="true">
+                <IconComp size={26} strokeWidth={2} />
+              </div>
+              <div className="weather-temp-col">
+                <span className="tabular weather-temp-val">
+                  {phase >= 2 ? tempC : animatedWeatherTemp}°
+                </span>
+                <span className="weather-sky">{skyLabel}</span>
+              </div>
             </div>
-            <div className="weather-temp-col">
-              <span className="tabular weather-temp-val">
-                {phase >= 2 ? tempC : animatedWeatherTemp}°
-              </span>
-              <span className="weather-sky">{skyLabel}</span>
+
+            <div className="weather-metrics">
+              <div className="clock-meta-row">
+                <span>습도</span>
+                <strong className="tabular">{humidity}%</strong>
+              </div>
+              <div className="weather-hum-rail">
+                <div
+                  className={`weather-hum-fill ${phase >= 2 ? 'is-filled' : ''}`}
+                  style={{ width: `${Math.max(10, humidity)}%` }}
+                />
+              </div>
+              <div className="clock-meta-row">
+                <span>풍속</span>
+                <strong className="tabular">{windKmh} km/h</strong>
+              </div>
+              <div className={`clock-meta-row clock-meta-row--accent motion-reveal-block ${phase >= 2 ? 'is-visible' : ''}`}>
+                <span>날씨 맞춤</span>
+                <strong>{moodLabel}</strong>
+              </div>
             </div>
           </div>
-
-          <div className="weather-metrics">
-            <div className="clock-meta-row">
-              <span>습도</span>
-              <strong className="tabular">{humidity}%</strong>
-            </div>
-            <div className="weather-hum-rail">
-              <div
-                className={`weather-hum-fill ${phase >= 2 ? 'is-filled' : ''}`}
-                style={{ width: `${Math.max(10, humidity)}%` }}
-              />
-            </div>
-            <div className="clock-meta-row">
-              <span>풍속</span>
-              <strong className="tabular">{windKmh} km/h</strong>
-            </div>
-            <div className={`clock-meta-row clock-meta-row--accent motion-reveal-block ${phase >= 2 ? 'is-visible' : ''}`}>
-              <span>날씨 맞춤</span>
-              <strong>{moodLabel}</strong>
-            </div>
+          <div className="stage-source-credit">
+            <a
+              href="https://open-meteo.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Weather data by Open-Meteo.com
+            </a>
+            {' ('}
+            <a
+              href="https://creativecommons.org/licenses/by/4.0/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              CC BY 4.0
+            </a>
+            {')'}
           </div>
         </div>
       </div>
@@ -551,6 +573,16 @@ export const ProofMotionStage: React.FC<ProofMotionStageProps> = ({
             <strong className="tabular" style={{ color: 'var(--ink-primary)' }}>
               {digits.join(' + ')} = <span style={{ color: 'var(--accent)' }}>{fxSum}</span>
             </strong>
+          </div>
+          <div className="stage-source-credit">
+            <a
+              href="https://www.exchangerate-api.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Rates By Exchange Rate API
+            </a>
           </div>
         </div>
       </div>

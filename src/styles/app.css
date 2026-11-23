@@ -189,7 +189,7 @@
   flex: 1;
   width: min(560px, 100%);
   margin: 0 auto;
-  padding: 0.6rem 1.15rem max(2.2rem, env(safe-area-inset-bottom));
+  padding: 0.6rem 1.15rem 1.25rem;
   display: grid;
   align-content: start;
   gap: 1.45rem;
@@ -1705,12 +1705,36 @@
 }
 
 /* Live Weather (실시간 날씨) */
+.weather-wrap {
+  display: grid;
+  gap: 0.55rem;
+}
+
 .weather-layout {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.1rem;
   padding: 0.15rem 0.2rem;
+}
+
+.stage-source-credit {
+  text-align: right;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+  line-height: 1.3;
+}
+
+.stage-source-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(107, 118, 132, 0.35);
+}
+
+.stage-source-credit a:hover {
+  color: var(--ink-secondary);
 }
 
 .weather-hero {
@@ -2358,6 +2382,36 @@
   border-radius: 12px;
 }
 
+/* === Minimal Essential Compliance Footer === */
+.site-footer {
+  width: min(620px, 100%);
+  margin: 0 auto;
+  padding: 0.55rem 1.15rem max(0.95rem, env(safe-area-inset-bottom));
+  display: grid;
+  gap: 0.2rem;
+  text-align: center;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+.site-footer-line {
+  margin: 0;
+  text-wrap: balance;
+}
+
+.site-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(107, 118, 132, 0.35);
+  transition: color 0.14s ease;
+}
+
+.site-footer a:hover {
+  color: var(--ink-secondary);
+}
+
 /* =========================================================
    MOBILE ERGONOMICS & BREATHING ROOM (<= 520px)
    ========================================================= */
@@ -2367,8 +2421,14 @@
   }
 
   .home-stage {
-    padding: 0 1rem clamp(2rem, 10dvh, 4.5rem);
+    padding: 0 1rem clamp(1.4rem, 7dvh, 3.2rem);
     gap: 1.35rem;
+  }
+
+  .site-footer {
+    padding: 0.45rem max(1rem, env(safe-area-inset-right)) max(0.8rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    font-size: 0.66rem;
+    line-height: 1.55;
   }
 
   .composer-box {
@@ -2394,7 +2454,7 @@
 
   /* Compact single-screen mobile result rhythm */
   .result-stage {
-    padding: 0.3rem max(1rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    padding: 0.3rem max(1rem, env(safe-area-inset-right)) 1rem max(1rem, env(safe-area-inset-left));
     gap: 0.95rem;
   }
 

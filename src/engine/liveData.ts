@@ -78,15 +78,79 @@ export function createInitialLiveData(now = new Date()): LiveWorldData {
 const WEATHER_ENDPOINT =
   'https://api.open-meteo.com/v1/forecast?latitude=35.8888&longitude=128.6103&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FSeoul';
 const FX_ENDPOINT = 'https://open.er-api.com/v6/latest/USD';
+const LIVE_CACHE_KEY = 'amumal_live_feeds_v1';
+const WEATHER_CACHE_TTL_MS = 15 * 60 * 1000;
+const FX_CACHE_TTL_MS = 30 * 60 * 1000;
+
+interface CachedLiveFeeds {
+  weather?: { data: LiveWeatherData; fetchedAt: number };
+  fx?: { data: LiveFxData; fetchedAt: number };
+}
+
+function readCachedFeeds(nowMs: number): { weather?: LiveWeatherData; fx?: LiveFxData } {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.sessionStorage.getItem(LIVE_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as CachedLiveFeeds;
+    const out: { weather?: LiveWeatherData; fx?: LiveFxData } = {};
+    if (
+      parsed.weather &&
+      nowMs - parsed.weather.fetchedAt < WEATHER_CACHE_TTL_MS &&
+      Number.isFinite(parsed.weather.data?.tempC) &&
+      Number.isFinite(parsed.weather.data?.humidity)
+    ) {
+      out.weather = parsed.weather.data;
+    }
+    if (
+      parsed.fx &&
+      nowMs - parsed.fx.fetchedAt < FX_CACHE_TTL_MS &&
+      Number.isFinite(parsed.fx.data?.usdKrw) &&
+      parsed.fx.data.usdKrw > 500 &&
+      parsed.fx.data.usdKrw < 5000
+    ) {
+      out.fx = parsed.fx.data;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeCachedFeeds(
+  nowMs: number,
+  weather?: LiveWeatherData,
+  fx?: LiveFxData
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.sessionStorage.getItem(LIVE_CACHE_KEY);
+    const existing: CachedLiveFeeds = raw ? (JSON.parse(raw) as CachedLiveFeeds) : {};
+    const next: CachedLiveFeeds = {
+      weather: weather ? { data: weather, fetchedAt: nowMs } : existing.weather,
+      fx: fx ? { data: fx, fetchedAt: nowMs } : existing.fx,
+    };
+    window.sessionStorage.setItem(LIVE_CACHE_KEY, JSON.stringify(next));
+  } catch {
+    // Ignore storage quota or private-mode restrictions
+  }
+}
 
 /**
  * Fetch real-time live weather (Open-Meteo) & USD/KRW rate (Open ER-API) silently in parallel
- * with declarative AbortSignal.timeout so slow/offline networks never stall the UI.
+ * with polite sessionStorage caching (respecting upstream fair-use / rate-limit terms)
+ * and declarative AbortSignal.timeout so slow/offline networks never stall the UI.
  */
 export async function fetchLiveFeeds(): Promise<{
   weather?: LiveWeatherData;
   fx?: LiveFxData;
 }> {
+  const nowMs = Date.now();
+  const cached = readCachedFeeds(nowMs);
+  if (cached.weather && cached.fx) {
+    return cached;
+  }
+
   const fetchInit: RequestInit = {
     method: 'GET',
     mode: 'cors',
@@ -96,43 +160,55 @@ export async function fetchLiveFeeds(): Promise<{
   };
 
   const [weatherRes, fxRes] = await Promise.allSettled([
-    fetch(WEATHER_ENDPOINT, { ...fetchInit, signal: AbortSignal.timeout(4500) }).then((r) => {
-      if (!r.ok) throw new Error(`Weather HTTP ${r.status}`);
-      return r.json();
-    }),
-    fetch(FX_ENDPOINT, { ...fetchInit, signal: AbortSignal.timeout(4500) }).then((r) => {
-      if (!r.ok) throw new Error(`FX HTTP ${r.status}`);
-      return r.json();
-    }),
+    cached.weather
+      ? Promise.resolve(null)
+      : fetch(WEATHER_ENDPOINT, { ...fetchInit, signal: AbortSignal.timeout(4500) }).then((r) => {
+          if (!r.ok) throw new Error(`Weather HTTP ${r.status}`);
+          return r.json();
+        }),
+    cached.fx
+      ? Promise.resolve(null)
+      : fetch(FX_ENDPOINT, { ...fetchInit, signal: AbortSignal.timeout(4500) }).then((r) => {
+          if (!r.ok) throw new Error(`FX HTTP ${r.status}`);
+          return r.json();
+        }),
   ]);
 
-  const result: { weather?: LiveWeatherData; fx?: LiveFxData } = {};
+  const result: { weather?: LiveWeatherData; fx?: LiveFxData } = { ...cached };
+  let freshWeather: LiveWeatherData | undefined;
+  let freshFx: LiveFxData | undefined;
 
-  if (weatherRes.status === 'fulfilled' && weatherRes.value?.current) {
+  if (!result.weather && weatherRes.status === 'fulfilled' && weatherRes.value?.current) {
     const cur = weatherRes.value.current;
     const tempC = Number(cur.temperature_2m);
     const humidity = Number(cur.relative_humidity_2m);
     const windKmh = Number(cur.wind_speed_10m);
     const weatherCode = Number(cur.weather_code);
     if (Number.isFinite(tempC) && Number.isFinite(humidity)) {
-      result.weather = {
+      freshWeather = {
         tempC: Number(tempC.toFixed(1)),
         humidity: Math.max(0, Math.min(100, Math.round(humidity))),
         windKmh: Number.isFinite(windKmh) ? Number(windKmh.toFixed(1)) : 4.0,
         weatherCode: Number.isFinite(weatherCode) ? weatherCode : 1,
         isLive: true,
       };
+      result.weather = freshWeather;
     }
   }
 
-  if (fxRes.status === 'fulfilled' && fxRes.value?.rates?.KRW) {
+  if (!result.fx && fxRes.status === 'fulfilled' && fxRes.value?.rates?.KRW) {
     const krw = Math.round(Number(fxRes.value.rates.KRW));
     if (Number.isFinite(krw) && krw > 500 && krw < 5000) {
-      result.fx = {
+      freshFx = {
         usdKrw: krw,
         isLive: true,
       };
+      result.fx = freshFx;
     }
+  }
+
+  if (freshWeather || freshFx) {
+    writeCachedFeeds(nowMs, freshWeather, freshFx);
   }
 
   return result;

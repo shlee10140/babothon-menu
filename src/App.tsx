@@ -13,7 +13,8 @@ import { LiveWorldData, MenuItem, TheoryId } from './types/menu';
 import {
   DEFAULT_MENUS,
   getNowClockContext,
-  pickDynamicSuggestions,
+  HomePromptSet,
+  pickHomePromptSet,
 } from './engine/hangulMath';
 import { computeMoonPhase, createInitialLiveData, fetchLiveFeeds } from './engine/liveData';
 import { generateProof, josa, pickFreshTheoryAndMenu } from './engine/proofEngine';
@@ -68,7 +69,7 @@ const LATE_REROLL_NUDGES = [
   '지금쯤이면 배고파서 뭘 먹어도 맛있을 텐데요.',
   '슬슬 제일 처음 나왔던 게 제일 나아 보이기 시작할 타이밍이에요.',
   '이 정도 돌렸으면 그냥 마음 가는 거 드셔도 아무도 뭐라 안 해요.',
-  '혹시 400개 구경하러 오신 건 아니죠?',
+  '혹시 500개 구경하러 오신 건 아니죠?',
   '알겠습니다, 마음에 드는 거 나올 때까지 뽑아드릴게요.',
   '계속 넘기시는 걸 보니 답은 이미 정해져 있는 것 같네요.',
   '이거 넘기시면 아까 나왔던 거보다 나을 보장은 없어요.',
@@ -166,8 +167,8 @@ export const App: React.FC = () => {
     text: string;
     showAddHint: boolean;
   } | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>(() =>
-    pickDynamicSuggestions(initial.liveData)
+  const [homePrompts, setHomePrompts] = useState<HomePromptSet>(() =>
+    pickHomePromptSet(initial.liveData)
   );
   const [stepsOpen, setStepsOpen] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.matchMedia('(min-width: 641px)').matches : true
@@ -404,12 +405,12 @@ export const App: React.FC = () => {
   const handleBackHome = () => {
     rerollCountRef.current = 0;
     setRerollNudge(null);
-    setSuggestions((prev) => pickDynamicSuggestions(latestLiveRef.current, prev));
+    setHomePrompts((prev) => pickHomePromptSet(latestLiveRef.current, prev));
     setView('home');
   };
 
   const handleRefreshSuggestions = () => {
-    setSuggestions((prev) => pickDynamicSuggestions(latestLiveRef.current, prev));
+    setHomePrompts((prev) => pickHomePromptSet(latestLiveRef.current, prev));
   };
 
   const handleToggleSound = () => {
@@ -544,7 +545,7 @@ export const App: React.FC = () => {
               type="text"
               maxLength={120}
               className="composer-input"
-              placeholder={`예) ${suggestions[0] ?? '난 진짜 다 좋아'}`}
+              placeholder={`예) ${homePrompts.placeholder}`}
               value={draftText}
               onChange={(e) => setDraftText(e.target.value)}
               autoFocus
@@ -560,7 +561,7 @@ export const App: React.FC = () => {
           </form>
 
           <div className="home-suggestions" aria-label="예시 문장 바로 해보기">
-            {suggestions.map((sentence) => (
+            {homePrompts.suggestions.map((sentence) => (
               <button
                 key={sentence}
                 type="button"
@@ -716,6 +717,32 @@ export const App: React.FC = () => {
           </section>
         </main>
       )}
+
+      <footer className="site-footer" aria-label="서비스 및 데이터 출처 안내">
+        <p className="site-footer-line">
+          입력 문장은 서버에 저장되지 않으며 브라우저에서만 처리됩니다 · 비영리 오락 서비스 · Hosted on{' '}
+          <a href="https://vercel.com" target="_blank" rel="noopener noreferrer">
+            Vercel
+          </a>
+        </p>
+        <p className="site-footer-line">
+          <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">
+            Weather data by Open-Meteo.com
+          </a>{' '}
+          (
+          <a
+            href="https://creativecommons.org/licenses/by/4.0/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            CC BY 4.0
+          </a>
+          ) ·{' '}
+          <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer">
+            Rates By Exchange Rate API
+          </a>
+        </p>
+      </footer>
 
       <MenuPoolDialog
         open={poolOpen}

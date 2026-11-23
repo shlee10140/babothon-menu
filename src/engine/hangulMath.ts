@@ -262,6 +262,99 @@ export function pickDynamicSuggestions(
   return chosen;
 }
 
+export interface HomePromptSet {
+  placeholder: string;
+  suggestions: string[];
+}
+
+const EVERGREEN_PLACEHOLDERS = [
+  '버스 눈앞에서 놓쳤다',
+  '이어폰 한쪽 어디 갔지',
+  '코드가 왜 돌아가는지 모르겠음',
+  '세미콜론 하나 빠져서 2시간 날림',
+  '방금 뭐 하려고 했는지 까먹음',
+  '배터리 4%인데 충전기 없음',
+  '엘리베이터 매 층마다 다 선다',
+  '아무 말이나 진짜로 적어도 됨',
+  '오늘따라 시간이 안 가네',
+  '지갑에 만 원도 없는 것 같은데',
+  '갑자기 제주도 가고 싶다',
+  '고양이 키우고 싶다',
+  '지금 당장 낮잠 3시간 자고 싶음',
+  '안 읽은 메시지 47개 쌓임',
+  '오늘 착장 은근 마음에 듦',
+  '내일 할 일 또 미루는 중',
+];
+
+function getTimeBasedPlaceholders(hour: number): string[] {
+  if (hour >= 6 && hour <= 10) {
+    return ['알람 5개 끄고 겨우 일어남', '1교시 만든 사람 나와'];
+  }
+  if (hour >= 11 && hour <= 14) {
+    return ['점심 고르다 쉬는 시간 끝남', '오후 수업 벌써 졸리네'];
+  }
+  if (hour >= 15 && hour <= 16) {
+    return ['3시만 되면 갑자기 허기짐', '저녁까지 못 버티겠는데'];
+  }
+  if (hour >= 17 && hour <= 21) {
+    return ['오늘 하루 진짜 길었다', '저녁 약속 취소돼서 자유임'];
+  }
+  return ['내일 1교시인데 아직 안 잠', '새벽만 되면 배고픈 병'];
+}
+
+function getContextPlaceholders(liveData?: LiveWorldData): string[] {
+  const out: string[] = [];
+  const clock = liveData?.clock ?? getNowClockContext();
+
+  if (clock.weekday === 2) out.push('월요일 아침 누가 만들었냐');
+  else if (clock.weekday === 6) out.push('금요일 오후 설렘 미쳤다');
+  else if (clock.weekday === 1 || clock.weekday === 7) {
+    out.push('주말 순삭되는 속도 실화냐');
+  }
+
+  if (liveData?.weather) {
+    const { tempC, weatherCode } = liveData.weather;
+    if (weatherCode >= 51) out.push('우산 안 챙겼는데 비 오네');
+    if (tempC <= 8) out.push('패딩 꺼내 입을 날씨네');
+    else if (tempC >= 25) out.push('에어컨 밖으로 한 발짝도 못 나감');
+  }
+
+  return out;
+}
+
+/**
+ * Pick 5 dynamic home suggestion chips AND 1 distinct dynamic input placeholder
+ * that always refresh together and never duplicate each other.
+ */
+export function pickHomePromptSet(
+  liveData?: LiveWorldData,
+  previous?: Partial<HomePromptSet>
+): HomePromptSet {
+  const suggestions = pickDynamicSuggestions(liveData, previous?.suggestions ?? [], 5);
+  const exclude = new Set<string>(suggestions);
+  if (previous?.placeholder) exclude.add(previous.placeholder);
+
+  const hour = liveData?.clock.hour ?? new Date().getHours();
+  const contextualPool = [
+    ...getTimeBasedPlaceholders(hour),
+    ...getContextPlaceholders(liveData),
+  ];
+
+  // Blend contextual (time/weather/day) placeholders (~40%) with evergreen everyday ones
+  const preferContextual = contextualPool.length > 0 && Math.random() < 0.4;
+  const primaryPool = preferContextual ? contextualPool : EVERGREEN_PLACEHOLDERS;
+  const fallbackPool = preferContextual ? EVERGREEN_PLACEHOLDERS : contextualPool;
+
+  const pickedPrimary = pickShuffled(primaryPool, exclude, 1)[0];
+  const placeholder =
+    pickedPrimary && !exclude.has(pickedPrimary)
+      ? pickedPrimary
+      : pickShuffled([...fallbackPool, ...EVERGREEN_PLACEHOLDERS], exclude, 1)[0] ??
+        '아무 말이나 진짜로 적어도 됨';
+
+  return { placeholder, suggestions };
+}
+
 export const EXAMPLE_SENTENCES = EVERGREEN_SUGGESTIONS;
 
 export function getNowClockContext(now = new Date()): ClockContext {

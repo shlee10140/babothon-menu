@@ -51,8 +51,8 @@ export function computeCinemaTiming(
   const act2Raw = 1260 + heavyTheoryBonus + Math.min(160, analysis.wordCount * 28) + j2 * 130;
   const act2Ms = Math.round(Math.max(1180, Math.min(1740, act2Raw)));
 
-  // Act 3: Scales with active menu pool size (fewer menus -> brisker, 400 menus -> richer culling)
-  const poolFactor = Math.min(1, Math.log10(Math.max(10, activeMenuCount)) / Math.log10(400));
+  // Act 3: Scales with active menu pool size (fewer menus -> brisker, 500 menus -> richer culling)
+  const poolFactor = Math.min(1, Math.log10(Math.max(10, activeMenuCount)) / Math.log10(500));
   const waveCount = Math.max(
     7,
     Math.min(11, Math.round(6.8 + poolFactor * 3.1 + (j3 > 0.35 ? 1 : j3 < -0.55 ? -1 : 0)))
